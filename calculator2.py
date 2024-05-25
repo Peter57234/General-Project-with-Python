@@ -1,158 +1,183 @@
 from prettytable import PrettyTable
+import math
 
 x = PrettyTable()
-while True:
- a = int(input("First value: "))
- b = int(input("Second values: "))
- c = input("Select your operation(+, - ,*, /): ")
- menu = input("Do you want to open menu?: ")
- goodbye = input("Do you want to exit?: ")
- if 'no' in goodbye:
-     pass     
- if 'yes' in goodbye:
+
+def create(language):
+    annouce = {
+        'en' : ["First value: ", "Second values: ", "Select your operation(+, -, *, /): ", "Do you want to open menu?:  ", "Do you want to exit?: "],
+        'vi' : ["Số đầu tiên: ", "Số thứ hai: ", "Chọn dấu(+, -, *, /): ", "Bạn có muốn mở menu không?: ", "Bạn có muốn thoát khỏi chương trình không?:  "],
+    } 
+    
+    return (input(annouce[language][i])for i in range(5))   
+def men(language):
+   menus = {
+      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime"],
+      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố"],
+
+   } 
+   for item in menus[language]:
+     print(item)
+   return (input("Chọn 1 lựa chọn: "))
+
+def binary():
+  try:  
+    ans = int(input("Nhập số: "))
+    x = bin(ans)
+    return print("Bằng: ", x)
+  except Exception:
+    print("Lỗi! Vui lòng nhập 1 con số hợp lệ") 
+def convert_unit():
+  try:  
+    ans = float(input("Nhập số mét: "))
+    
+    converted_rates = {
+        "mét sang kilômét": 0.001,
+        "mét sang centimét": 100,
+        "mét sang milimét": 1000,
+    }
+    
+    print("Chọn loại chuyển đổi:")
+    for i, conversion in enumerate(converted_rates.keys(), start=1):
+        print(f"{i}. {conversion}")
+
+    
+    choice = int(input("Nhập số tương ứng với loại chuyển đổi: "))
+    conversion_key = list(converted_rates.keys())[choice - 1]
+
+   
+    result = ans * converted_rates[conversion_key]
+    print(f"Bằng: {result} {conversion_key.split()[-1]}")
+    return
+  except ValueError:
+    print("Lỗi! Vui lòng nhập 1 con số hợp lệ")
+  except IndexError:
+    print("Lỗi! Vui lòng chọn 1 lựa chọn hợp lệ")  
+def convert_unit_pound():
+   try: 
+    ans = float(input("Nhập số gam: "))
+    
+    converted_rates = {
+        "gam đến kilogam": 0.001,
+        "gam đến héc tô gam": 0.01,
+        "gam đến đề ca gam": 0.1,
+    }
+    
+    print("Chọn loại chuyển đổi:")
+    for i, conversion in enumerate(converted_rates.keys(), start=1):
+        print(f"{i}. {conversion}")
+
+    
+    choice = int(input("Nhập số tương ứng với loại chuyển đổi: "))
+    conversion_key = list(converted_rates.keys())[choice - 1]
+
+   
+    result = ans * converted_rates[conversion_key]
+    print(f"Bằng: {result} {conversion_key.split()[-1]}")
+    return
+   except ValueError:
+     print("Lỗi! Vui lòng nhập 1 con số hợp lệ")
+   except IndexError:
+     print("Lỗi! Vui lòng chọn 1 lựa chọn hợp lệ")  
+
+def eratosthenes():
+  while True:
+   try:
+    n = int(input("Nhập giới hạn: "))
+    exit = input("Bạn có muốn exit không?")
+    dd = [True]*n
+    s = []
+    for i in range(2, n):
+     if dd[i] == True:
+      for e in range(i*i,n,i):
+        dd[e] = False
+    for i in range(2,n):
+     if dd[i] == True:
+      s.append(i)
+    print(s)
+    if 'yes' in exit:
      break     
- if 'no' in menu:
-     pass
- if 'yes' in menu:
-  print("1. Language")
-  print("2. Exit")
-  print("3. Table")
-  opt = input("Choose an option: ")
-  if '3' in opt:
-     x.add_column("Column 1", [])
-     x.add_column("Column 2", [])
-     x.add_column("Column 3", [])
+    return
+   except ValueError:
+     print("Lỗi! Vui lòng nhập 1 con số hợp lệ")
+
+def prime_check():
+  while True:
+   try: 
+    n = int(input("Nhập số: "))
+    exit = input("Bạn có muốn exit không?")
+    check = True
+    if n<2:
+     check = False
+    for i in range(2,n//2+1):         
+     if n%i == 0:
+      check = False
+    if check == True:
+     print("Số đó là số nguyên tố")
+    else:
+     print("Không phải là số nguyên tố")
+    if 'yes' in exit.lower():
+     break 
+    return
+   except ValueError:
+     print("Lỗi! Vui lòng nhập 1 con số hợp lệ ")         
+def math(a,b,c):
+ try: 
+     if c == '+':
+      return a+b
+     if c == '-':
+      return a-b
+     if c == '*':
+      return a*b 
+     if c == '/':
+      return a/b 
+     if c == '**':
+      return a ** b  
+ except Exception as e:
+    print(f"Lỗi: {e}") 
+
+language = 'en'
+while True:
+  a, b, c, menu, goodbye = create(language)
+  a,b = int(a), int(b)
+  if 'yes' in goodbye:
+    break
+  if 'yes' in menu:
+    opt = men(language)
+    if '3' in opt:
+     ans = input("").split(',')
+     x.add_column("Column 1", ans)
+     x.add_column("Column 2", ans)
+     x.add_column("Column 3", ans)
      print(x)
-  if '1' in opt:
-      print("1. Vietnamese")
-      print("2. English")
-      ans = input("Choose an option: ")
+    if '4' in opt:
+      convert = binary()
+    if '5' in opt:
+      print("1. Độ dài")
+      print("2. Khối lượng")
+      ans = input("Chọn 1 lựa chọn: ")
       if '1' in ans:
-        print("Đã lưu!")     
-        while True:
-         a = int(input("Số đầu tiên: "))
-         b = int(input("Số thứ hai: "))
-         c = input("Chọn dấu(+, -, x, /): ")
-         menu = input("Bạn có muốn mở menu không?: ")
-         goodbye = input("Bạn có muốn thoát khỏi chương trình không?: ")
-         if 'no' in goodbye:
-           print("")
-         if 'yes' in goodbye:
-           break        
-         if 'no' in menu:
-            print("")
-         if 'yes' in menu:
-            print("1. Ngôn ngữ")
-            print("2. Thoát")
-            print("3. Bảng")
-            opt = input("Chọn một lựa chọn: ")
-            if '2' in opt:
-              print("")
-            if '3' in opt:
-              x.add_column("Column 1", [])
-              x.add_column("Column 2", [])
-              x.add_column("Column 3", [])  
-            if '1' in opt:
-               print("1. Vietnamese")
-               print("2. English")
-               ans = input("Chọn một lựa chọn: ") 
-            if '2' in ans:
-              print("Saved!")
-              while True: 
-               a = int(input("First value: "))
-               b = int(input("Second values: "))
-               c = input("Select your operation(+,-,*,/): ")
-               menu = input("Do you want to open menu?: ")
-               goodbye = input("Do you want to exit?: ")
-               if 'no' in goodbye:
-                pass     
-               if 'yes' in goodbye:
-                 break     
-               if 'no' in menu:
-                 pass
-               if 'yes' in menu:
-                 print("1. Language")
-                 print("2. Exit")
-                 print("3. Table")
-                 opt = input("Choose an option: ")
-                 if '2' in opt:
-                   print("")
-                 if '3' in opt:
-                   x.add_column("Column 1", [])
-                   x.add_column("Column 2", [])
-                   x.add_column("Column 3", [])  
-                 if '1' in opt:
-                  print("1. Vietnamese")
-                  print("2. English")
-                  ans = input("Choose an option: ")
-                  if '1' in ans:
-                    print("Đã lưu!")
-                    while True:
-                     a = int(input("Số đầu tiên: "))
-                     b = int(input("Số thứ hai: "))
-                     c = input("Chọn dấu(+, -, x, /): ")
-                     menu = input("Bạn có muốn mở menu không?: ")
-                     goodbye = input("Bạn có muốn thoát khỏi chương trình không?: ") 
-                     if 'no' in goodbye:
-                      print("")
-                     if 'yes' in goodbye:
-                      break        
-                     if 'no' in menu:
-                      print("")
-                     if 'yes' in menu:
-                      print("1. Ngôn ngữ")
-                      print("2. Thoát")
-                      print("3. Bảng")
-                      opt = input("Chọn một lựa chọn: ")
-                      if '2' in opt:
-                        print("")
-                      if '3' in opt:
-                        x.add_column("Column 1", [])
-                        x.add_column("Column 2", [])
-                        x.add_column("Column 3", [])  
-                      if '1' in opt:
-                        print("1. Vietnamese")
-                        print("2. English")
-                        ans = input("Chọn 1 lựa chọn: ")
-                        if '2' in ans:
-                          print("Saved!")
-         if'+' in c:
-           print("Bằng: ", a + b or b + a )
-         if '-' in c :
-           print("Bằng: ", a - b or b - a)
-         if '*' in c:
-           print("Bằng: ", a * b or b * a)
-         try:       
-          if '/' in c:
-           print("Bằng: ", a / b or b / a)
-         except:
-            print("Lỗi!")    
+        convert_unit()
       if '2' in ans:
-        print("Saved!")
-        a = int(input("First value: "))
-        b = int(input("Second values: "))
-        c = input("Select your operation(+,-,*,/): ")
-          
-      if '3' in opt:
-         x.add_column("", [input])
-         x.add_column("", [input])
-         x.add_column("", [input])
-      else:
-         print("Error!")                       
-      if '2' in opt:
-          pass
- if '+' in c:
-     print("Equal to: ", a + b or b + a )
- if '-' in c :
-     print("Equal to: ", a - b or b - a)
- if '*' in c:
-     print("Equal to: ", a * b or b * a)
- try:
-  if '/' in c:
-      print("Equal to: ", a / b or b / a)
- except:
-  print("Error!")
-
-
-
+        convert_unit_pound()
+    if '6' in opt:
+      print("1. Kiểm tra số nguyên tố")
+      print("2. Tìm số nguyên tố")
+      ans = input("Chọn 1 lựa chọn: ")
+      if '1' in ans:
+        prime_check()     
+      if '2' in ans:
+       eratosthenes()     
+    elif '1' in opt:
+     print("1. Vietnamese")
+     print("2. English")
+     ans = input("Chọn 1 lựa chọn: ")
+     if '1' in ans:
+      print("Đã lưu!") 
+      language = 'vi'
+     if '2' in ans:
+      print("Đã lưu!")
+      language = 'en'   
+  equal = math(a,b,c)
+  print(f"Bằng:  {equal}")  
 

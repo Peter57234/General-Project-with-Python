@@ -1,7 +1,14 @@
 from prettytable import PrettyTable
 import math
+import os
+from openai import OpenAI
+
+client = OpenAI(
+   api_key= os.environ.get("")
+)
 
 x = PrettyTable()
+
 
 def create(language):
     annouce = {
@@ -12,15 +19,15 @@ def create(language):
     return (input(annouce[language][i])for i in range(5))   
 def men(language):
    menus = {
-      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime"],
-      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố"],
+      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime", "7. AI help"],
+      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố", "7. AI trợ giúp"],
 
    } 
    for item in menus[language]:
      print(item)
    return (input("Chọn 1 lựa chọn: "))
-
-def binary():
+   
+def binary_convert():
   try:  
     ans = int(input("Nhập số: "))
     x = bin(ans)
@@ -78,7 +85,22 @@ def convert_unit_pound():
    except ValueError:
      print("Lỗi! Vui lòng nhập 1 con số hợp lệ")
    except IndexError:
-     print("Lỗi! Vui lòng chọn 1 lựa chọn hợp lệ")  
+     print("Lỗi! Vui lòng chọn 1 lựa chọn hợp lệ")
+     
+def chat_with_gpt(prompt): 
+ stream = client.chat.completions.create(
+    model = "gpt-3.5-turbo",
+    messages = [{"role": "user", "content": prompt}],
+    temperature = 0.5,
+    max_tokens = 1024,
+    top_p = 1,
+    frequency_penalty = 1,
+    presence_penalty = 1,
+    stream = True,
+)
+ for chunk in stream:
+    if chunk.choices[0].delta.content is not None:
+     print(chunk.choices[0].delta.content, end="")       
 
 def eratosthenes():
   while True:
@@ -121,7 +143,7 @@ def prime_check():
     return
    except ValueError:
      print("Lỗi! Vui lòng nhập 1 con số hợp lệ ")         
-def math(a,b,c):
+def calculate(a,b,c):
  try: 
      if c == '+':
       return a+b
@@ -135,9 +157,9 @@ def math(a,b,c):
       return a ** b  
  except Exception as e:
     print(f"Lỗi: {e}") 
-
-language = 'en'
-while True:
+def main():
+ language = 'en'
+ while True:
   a, b, c, menu, goodbye = create(language)
   a,b = int(a), int(b)
   if 'yes' in goodbye:
@@ -151,7 +173,7 @@ while True:
      x.add_column("Column 3", ans)
      print(x)
     if '4' in opt:
-      convert = binary()
+       binary_convert()
     if '5' in opt:
       print("1. Độ dài")
       print("2. Khối lượng")
@@ -167,7 +189,18 @@ while True:
       if '1' in ans:
         prime_check()     
       if '2' in ans:
-       eratosthenes()     
+       eratosthenes()
+    if '7' in opt:
+      print("Đã lưu")
+      while True:
+        user_input = input("You: ")
+        if user_input.lower() in ["tạm biệt", "bye", "thoát", "exit"]:
+          break
+        response = chat_with_gpt(user_input)
+        if response is None:
+          print("")
+        else:
+          print("ChatGPT: ", response)         
     elif '1' in opt:
      print("1. Vietnamese")
      print("2. English")
@@ -180,4 +213,5 @@ while True:
       language = 'en'   
   equal = math(a,b,c)
   print(f"Bằng:  {equal}")  
-
+if __name__ == "__main__" :
+  main()

@@ -2,6 +2,11 @@ from prettytable import PrettyTable
 import math
 import os
 from openai import OpenAI
+import time
+import asyncio
+from pytube import YouTube 
+from pydub import AudioSegment
+import pygame
 
 client = OpenAI(
    api_key= os.environ.get("")
@@ -19,14 +24,56 @@ def create(language):
     return (input(annouce[language][i])for i in range(5))   
 def men(language):
    menus = {
-      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime", "7. AI help"],
-      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố", "7. AI trợ giúp"],
+      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime", "7. AI help", "8. Music"],
+      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố", "7. AI trợ giúp", "8. Nhạc"],
 
    } 
    for item in menus[language]:
      print(item)
    return (input("Chọn 1 lựa chọn: "))
-   
+
+def download_audio_from_youtube(youtube_url, filename="song"):
+    try:
+        # Create a YouTube object
+        yt = YouTube(youtube_url)
+
+        # Get the highest quality audio stream available
+        audio_stream = yt.streams.filter(only_audio=True).first()
+
+        # Download the audio file
+        audio_file = audio_stream.download(filename=filename)
+
+        # Convert the downloaded file to mp3 using pydub
+        audio = AudioSegment.from_file(audio_file)
+        mp3_filename = f"{filename}.mp3"
+        audio.export(mp3_filename, format="mp3")
+
+        # Remove the original file to clean up
+        os.remove(audio_file)
+
+        return mp3_filename
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+    
+def play_song(filename):
+    try:
+        # Initialize pygame mixer
+        pygame.mixer.init()
+
+        # Load the song
+        pygame.mixer.music.load(filename)
+
+        # Play the song
+        pygame.mixer.music.play()
+
+        # Wait for the song to finish
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 def binary_convert():
   try:  
     ans = int(input("Nhập số: "))
@@ -36,7 +83,7 @@ def binary_convert():
     print("Lỗi! Vui lòng nhập 1 con số hợp lệ") 
 def convert_unit():
   try:  
-    ans = float(input("Nhập số mét: "))
+    ans = int(input("Nhập số mét: "))
     
     converted_rates = {
         "mét sang kilômét": 0.001,
@@ -156,25 +203,38 @@ def calculate(a,b,c):
      if c == '**':
       return a ** b  
  except Exception as e:
-    print(f"Lỗi: {e}") 
-def main():
- language = 'en'
+    print(f"Lỗi: {e}")
+     
+async def main():
  while True:
-  a, b, c, menu, goodbye = create(language)
-  a,b = int(a), int(b)
-  if 'yes' in goodbye:
-    break
-  if 'yes' in menu:
-    opt = men(language)
-    if '3' in opt:
-     ans = input("").split(',')
-     x.add_column("Column 1", ans)
-     x.add_column("Column 2", ans)
-     x.add_column("Column 3", ans)
-     print(x)
-    if '4' in opt:
+   try:
+    print(f"started at {time.strftime('%X')}")
+    language = 'en'
+    a, b, c, menu, goodbye = create(language)
+    a,b = int(float(a)), int(float(b))
+    if 'yes' in goodbye:
+     break
+    if 'yes' in menu:
+     opt = men(language)
+     if '3' in opt:
+      x.add_column("Column 1", )
+      x.add_column("Column 2", )
+      x.add_column("Column 3", )
+      print(x)
+     if '4' in opt:
        binary_convert()
-    if '5' in opt:
+     if '8' in opt:
+       # youtube_url = "https://www.youtube.com/watch?v=cMg8KaMdDYo"
+       youtube_url = "https://www.youtube.com/watch?v=B7xai5u_tnk"
+       # youtube_url = "https://www.youtube.com/watch?v=hKRUPYrAQoE"
+       audio_file = download_audio_from_youtube(youtube_url)
+       if audio_file:
+        play_song(audio_file)
+       # Optionally, remove the song file after playing
+        os.remove(audio_file)
+       else:
+        print("Failed to download audio.")  
+     if '5' in opt:
       print("1. Độ dài")
       print("2. Khối lượng")
       ans = input("Chọn 1 lựa chọn: ")
@@ -182,7 +242,7 @@ def main():
         convert_unit()
       if '2' in ans:
         convert_unit_pound()
-    if '6' in opt:
+     if '6' in opt:
       print("1. Kiểm tra số nguyên tố")
       print("2. Tìm số nguyên tố")
       ans = input("Chọn 1 lựa chọn: ")
@@ -190,7 +250,7 @@ def main():
         prime_check()     
       if '2' in ans:
        eratosthenes()
-    if '7' in opt:
+     if '7' in opt:
       print("Đã lưu")
       while True:
         user_input = input("You: ")
@@ -201,17 +261,22 @@ def main():
           print("")
         else:
           print("ChatGPT: ", response)         
-    elif '1' in opt:
-     print("1. Vietnamese")
-     print("2. English")
-     ans = input("Chọn 1 lựa chọn: ")
-     if '1' in ans:
-      print("Đã lưu!") 
-      language = 'vi'
-     if '2' in ans:
-      print("Đã lưu!")
-      language = 'en'   
-  equal = math(a,b,c)
-  print(f"Bằng:  {equal}")  
+     elif '1' in opt:
+      print("1. Vietnamese")
+      print("2. English")
+      ans = input("Chọn 1 lựa chọn: ")
+      if '1' in ans:
+       print("Đã lưu!") 
+       language = 'vi'
+      if '2' in ans:
+       print("Đã lưu!")
+       language = 'en'   
+    equal = calculate(a,b,c)
+    print(f"Bằng:  {equal}")
+    print(f"finished at {time.strftime('%X')}")
+   except ValueError:
+     print("Lỗi! Vui lòng nhập 1 con số hợp lệ")
+   
 if __name__ == "__main__" :
-  main()
+   asyncio.run(main())  
+   

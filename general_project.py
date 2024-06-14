@@ -1,6 +1,5 @@
 from prettytable import PrettyTable
 import math 
-import os
 from openai import OpenAI
 import time
 from pytube import YouTube 
@@ -15,72 +14,226 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import bcrypt
+import cv2
+import numpy as np
+import os
+from PIL import Image
 
-
-client = OpenAI(api_key=os.environ.get(""))
-
+client = OpenAI(
+   api_key=os.environ.get("")
+)
 x = PrettyTable()
-
 def login_and_register():
-  def hash_password(password):
+ def hash_password(password):
     # Generate a salt
     salt = bcrypt.gensalt()
     # Hash the password
     hashed = bcrypt.hashpw(password.encode(), salt)
     return hashed
-  def register(): 
+
+ def register():
     nickname = input("Nhập tên người dùng: ")
     password = input("Nhập mật khẩu: ")
+
+    def detect():
+        cam = cv2.VideoCapture(0)
+        cam.set(3, 640)  # Set width
+        cam.set(4, 480)  # Set height
+
+        # Load Haar Cascade for face detection
+        face_detector = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+        # Prompt for face ID input
+        face_id = input("\nNhập id khuôn mặt: ")
+        print("Khởi tạo camera...")
+        count = 0
+
+        while True:
+            ret, img = cam.read()
+            if not ret:
+                print("Lỗi: Không thể chụp hình ảnh!")
+                break
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_detector.detectMultiScale(gray, 1.1, 4)
+
+            for (x, y, w, h) in faces:
+                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                count += 1
+
+                # Save the captured image
+                filename = f"dataset/User.{face_id}.{count}.jpg"
+                cv2.imwrite(filename, gray[y:y + h, x:x + w])
+
+                # Display the image with rectangles
+                if count % 5 == 0:  # Show every 5th frame to speed up
+                    cv2.imshow('image', img)
+
+            k = cv2.waitKey(1) & 0xff  # Press 'ESC' to exit
+            if k == 27 or count >= 30:
+                break
+
+        print("\nThoát")
+        cam.release()
+        cv2.destroyAllWindows()
+
+    print("Nhận diện khuôn mặt...")
+    detect()
+
+    def training():
+        path = 'dataset'
+
+        # Check OpenCV version to use the appropriate face recognizer creation method
+        if cv2.__version__.startswith('4'):
+            recognizer = cv2.face.LBPHFaceRecognizer_create()
+        else:
+            recognizer = cv2.createLBPHFaceRecognizer()
+
+        # Path to the Haar Cascade file
+        detector = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
+        def getImagesandLabels(path):
+            imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
+            faceSamples = []
+            ids = []
+            for imagePath in imagePaths:
+                # Open the image and convert to grayscale
+                PIL_img = Image.open(imagePath).convert('L')
+                img_numpy = np.array(PIL_img, 'uint8')
+
+                # Get the ID from the filename
+                id = int(os.path.split(imagePath)[-1].split(".")[1])
+
+                # Detect face
+                faces = detector.detectMultiScale(img_numpy)
+
+                # Add the face and ID to the lists
+                for (x, y, w, h) in faces:
+                    faceSamples.append(img_numpy[y:y + h, x:x + w])
+                    ids.append(id)
+            return faceSamples, ids
+
+        print("\nĐang training dữ liệu...")
+        faces, ids = getImagesandLabels(path)
+
+        # Train the face recognizer
+        recognizer.train(faces, np.array(ids))
+        recognizer.write('trainers/trainer.yml')
+
+        print("\nTraining hoàn thành!")
+
+    training()
     hashed_password = hash_password(password)
-          
-    with open('register_log.txt', 'w') as files:
-       files.write(nickname + "\n")
-       files.write(hashed_password.decode() + '\n')
-    print("Đăng ký thành công") 
-  def check_password(stored_password, provided_password):
+
+    with open('register_log.txt', 'w') as file:
+        file.write(nickname + "\n")
+        file.write(hashed_password.decode() + '\n')
+    print("Đăng ký thành công")
+
+ def check_password(stored_password, provided_password):
     # Check the password with the hashed version
-    return bcrypt.checkpw(provided_password.encode(), stored_password.encode())    
-       
-  def login():
+    return bcrypt.checkpw(provided_password.encode(), stored_password.encode())
+
+ def login():
     max_attempts = 3
     attempts = 0
     while attempts < max_attempts:
         nickname = input("Nhập tên người dùng: ")
         password = input("Nhập mật khẩu: ")
-        
+        print("Đang nhận diện khuôn mặt...")
+
+        def recognize():
+            recognizer = cv2.face.LBPHFaceRecognizer_create()
+            recognizer.read('trainers/trainer.yml')
+            cascadePath = "haarcascade_frontalface_default.xml"
+            faceCascade = cv2.CascadeClassifier(cascadePath)
+
+            # Initialize and configure the camera
+            cam = cv2.VideoCapture(0)
+            cam.set(3, 640)  # Frame width
+            cam.set(4, 480)  # Frame height
+
+            # Set the minimum window size for face detection
+            minW = 0.1 * cam.get(3)
+            minH = 0.1 * cam.get(4)
+
+            names = ['Dinh Hung.']  # Add user names corresponding to IDs
+
+            while True:
+                ret, img = cam.read()
+                if not ret:
+                    print("Lỗi: Không thể chụp hình ảnh!")
+                    break
+
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces = faceCascade.detectMultiScale(
+                    gray,
+                    scaleFactor=1.2,
+                    minNeighbors=5,
+                    minSize=(int(minW), int(minH)),
+                )
+
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    id, confidence = recognizer.predict(gray[y:y + h, x:x + w])
+
+                    if confidence < 100:
+                        name = names[id]
+                        confidence_text = f"  {round(100 - confidence)}%"
+                        cv2.putText(img, str(name), (x + 5, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(img, str(confidence_text), (x + 5, y + h - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)
+                        return True  # Face recognized successfully
+                    else:
+                        name = "unknown"
+                        confidence_text = f"  {round(100 - confidence)}%"
+                        cv2.putText(img, str(name), (x + 5, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(img, str(confidence_text), (x + 5, y + h - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)
+
+                cv2.imshow('camera', img)
+
+                k = cv2.waitKey(1) & 0xff  # Press 'ESC' to exit
+                if k == 27:
+                    break
+
+            print("\nThoát")
+            cam.release()
+            cv2.destroyAllWindows()
+            return False
+
         with open('register_log.txt', 'r') as file:
             lines = file.readlines()
             valid = False
-            
-            # Chạy qua các dòng, kiểm tra nickname và mật khẩu
+
+            # Iterate through lines, check nickname and password
             for i in range(0, len(lines), 2):
                 saved_nickname = lines[i].strip()
-                saved_hashed_password = lines[i+1].strip()
-                
-                if nickname == saved_nickname and check_password(saved_hashed_password, password):
+                saved_hashed_password = lines[i + 1].strip()
+
+                if nickname == saved_nickname and check_password(saved_hashed_password, password) and recognize():
                     valid = True
                     break
-                 
-            
+
         if valid:
             print("Đăng nhập thành công!")
             break
         else:
             attempts += 1
             if attempts < max_attempts:
-               print(f"Sai mật khẩu hoặc tên người dùng, bạn còn {max_attempts - attempts} lần thử nữa.")
-            else:   
-             print("Sai mật khẩu hoặc tên người dùng, vui lòng thử lại sau vài phút.")
-             time.sleep(1000)
-  def main():
-     choice = input("Chọn 1 để đăng ký, 2 để đăng nhập: ")
-     if choice == '1':
+                print(f"Sai mật khẩu hoặc tên người dùng, bạn còn {max_attempts - attempts} lần thử nữa.")
+            else:
+                print("Sai mật khẩu hoặc tên người dùng, vui lòng thử lại sau vài phút.")
+                time.sleep(1000)
+
+ def main():
+    choice = input("Chọn 1 để đăng ký, 2 để đăng nhập: ")
+    if choice == '1':
         register()
         login()
-     if choice == '2':
+    elif choice == '2':
         login()
-  if __name__ == '__main__':
-     main()                
+
+ if __name__ == '__main__':
+    main()                
 
 def input_user(language):
     annouce = {
@@ -91,8 +244,8 @@ def input_user(language):
     return (input(annouce[language][i])for i in range(5))   
 def men(language):
    menus = {
-      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime", "7. AI help", "8. Music", "9. Quick Response Code", "10. Probability ", "11. Caro game", "12. Password Generator", "13. Banking", "14. Feedback", "15 Log out"],
-      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố", "7. AI trợ giúp", "8. Nhạc", "9. Mã phản hồi nhanh", "10. Xác suất ", "11. Chơi ca-rô", "12. Tạo mật khẩu", "13. Banking", "14. Nhận xét", "15. Đăng xuất"],
+      'en' : ["1. Language", "2. Exit", "3. Table", "4. Convert decimals to binary", "5. Unit conversion", "6. Prime", "7. AI help", "8. Music", "9. Quick Response Code", "10. Probability ", "11. Caro game", "12. Password Generator", "13. Banking", "14. Feedback", "15. Log out", "16. Game"],
+      'vi' : ["1. Ngôn ngữ", "2. Thoát", "3. Bảng", "4. Chuyển đổi số thập phân sang hệ nhị phân", "5. Chuyển đổi đơn vị đo", "6. Số nguyên tố", "7. AI trợ giúp", "8. Nhạc", "9. Mã phản hồi nhanh", "10. Xác suất ", "11. Chơi ca-rô", "12. Tạo mật khẩu", "13. Banking", "14. Nhận xét", "15. Đăng xuất", "16. Trò chơi"],
 
    } 
    for item in menus[language]:
@@ -374,6 +527,189 @@ def Dice():
 
   tính_xác_xuất()
 
+def game_đối_kháng():
+   class NgườiChơi:
+     def __init__(self, tên):
+        self.tên = tên
+        self.máu = 100
+        self.điểm = 0
+        self.năng_lượng = 100
+        self.hiệu_ứng_đặc_biệt = []  # Danh sách các hiệu ứng đặc biệt đang tác động lên người chơi
+        self.đã_dùng_ulti = False
+        self.có_thể_dùng_chiêu_đặc_biệt = True
+        self.có_thể_sử_dụng_tất_cả_chiêu = True  # Xác định xem có thể sử dụng chiêu hay không
+        self.được_bảo_vệ_khỏi_ulti = False     # Xác định xem người chơi có được bảo vệ khỏi chiêu Ulti không
+        
+     def tấn_công(self, đối_thủ, chiêu):
+        sát_thương = 0  # Khởi tạo sát thương mặc định
+
+        if not self.có_thể_sử_dụng_tất_cả_chiêu:
+            print("Bạn đã bị vô hiệu hóa và không thể sử dụng bất kỳ chiêu thức nào!")
+            return 0
+
+        if chiêu == "1":
+            sát_thương = random.randint(5, 10)
+            tên_chiêu = "Thanh"
+            self.năng_lượng -= 10
+        elif chiêu == "2":
+            if not self.có_thể_dùng_chiêu_đặc_biệt:
+                print("Bạn không thể sử dụng chiêu Xích nữa!")
+                return 0
+            sát_thương = random.randint(10, 15)
+            tên_chiêu = "Xích"
+            self.năng_lượng -= 20
+        elif chiêu == "3":
+            if not self.có_thể_dùng_chiêu_đặc_biệt:
+                print("Bạn không thể sử dụng chiêu Hư thức: Tử nữa!")
+                return 0
+            tên_chiêu = "Hư thức: Tử"
+            if self.máu <= 0.5 * self.max_máu:
+                sát_thương = đối_thủ.máu
+                print(f"{self.tên} sử dụng chiêu {tên_chiêu} và tiêu diệt ngay lập tức {đối_thủ.tên}!")
+            else:
+                sát_thương = random.randint(15, 20)
+                print(f"{self.tên} sử dụng chiêu {tên_chiêu} nhưng không đủ điều kiện tiêu diệt ngay lập tức.")
+            self.năng_lượng -= 60    
+        elif chiêu == "4":
+            if self.đã_dùng_ulti:
+                print("Bạn đã sử dụng chiêu Ulti trước đó và không thể sử dụng lại!")
+                return 0
+            if self.năng_lượng < 70:
+                print("Bạn không đủ năng lượng để sử dụng chiêu Ulti!")
+                return 0
+            if đối_thủ.được_bảo_vệ_khỏi_ulti:
+                print(f"{đối_thủ.tên} đã kích hoạt Giản dị lãnh địa và chống lại chiêu Ulti!")
+                return 0
+            sát_thương = random.randint(20, 30)
+            tên_chiêu = "Ulti"
+            đối_thủ.hiệu_ứng_đặc_biệt.append({"loại": "stun", "lượt": 2, "sát_thương": 5})
+            print(f"{self.tên} sử dụng chiêu {tên_chiêu} và gây hiệu ứng bất động cho {đối_thủ.tên}.")
+            self.đã_dùng_ulti = True
+            self.có_thể_dùng_chiêu_đặc_biệt = False
+            self.năng_lượng -= 70
+        elif chiêu == "5":
+            tên_chiêu = "Hắc thăng"
+            self.năng_lượng -= 50
+            đối_thủ.có_thể_sử_dụng_tất_cả_chiêu = False
+            print(f"{self.tên} sử dụng chiêu {tên_chiêu} và vô hiệu hóa toàn bộ chiêu thức của {đối_thủ.tên}.")
+        elif chiêu == "6":
+            tên_chiêu = "Giản dị lãnh địa"
+            self.năng_lượng -= 30
+            self.được_bảo_vệ_khỏi_ulti = True
+            print(f"{self.tên} sử dụng chiêu {tên_chiêu} và bảo vệ khỏi chiêu Ulti.")
+        elif chiêu == "7":
+            tên_chiêu = "Lãnh địa triển duyên"
+            self.năng_lượng -= 60
+            đối_thủ.có_thể_sử_dụng_tất_cả_chiêu = False
+            self.có_thể_sử_dụng_tất_cả_chiêu = False  # Vô hiệu hóa chiêu thức của bản thân
+            đối_thủ.hiệu_ứng_đặc_biệt.append({"loại": "stun", "lượt": 1, "sát_thương": 0})
+            print(f"{self.tên} sử dụng chiêu {tên_chiêu} và vô hiệu chiêu thức của cả hai người chơi và gây hiệu ứng bất động.")
+        else:
+            print("Chiêu thức không hợp lệ!")
+            return 0
+
+        if chiêu in ["1", "2", "3", "4"]:
+            đối_thủ.máu -= sát_thương
+            print(f"{self.tên} tấn công {đối_thủ.tên} và gây ra {sát_thương} sát thương bằng chiêu {tên_chiêu}.")
+        return sát_thương
+
+     def phòng_thủ(self):
+        hồi_phục = random.randint(5, 15)
+        self.máu += hồi_phục
+        print(f"{self.tên} phòng thủ và hồi phục {hồi_phục} máu.")
+        return hồi_phục
+
+     def áp_dụng_hiệu_ứng_đặc_biệt(self):
+        hiệu_ứng_mới = []
+        for hiệu_ứng in self.hiệu_ứng_đặc_biệt:
+            if hiệu_ứng["loại"] == "stun":
+                self.máu -= hiệu_ứng["sát_thương"]
+                print(f"{self.tên} mất {hiệu_ứng['sát_thương']} máu do hiệu ứng Ulti.")
+                print(f"{self.tên} bị bất động và không thể hành động.")
+                hiệu_ứng["lượt"] -= 1
+            if hiệu_ứng["lượt"] > 0:
+                hiệu_ứng_mới.append(hiệu_ứng)
+        self.hiệu_ứng_đặc_biệt = hiệu_ứng_mới
+
+     def bị_bất_động(self):
+        return any(hiệu_ứng["loại"] == "stun" for hiệu_ứng in self.hiệu_ứng_đặc_biệt)
+
+     def còn_sống(self):
+        return self.máu > 0
+
+     def còn_năng_lượng(self):
+        return self.năng_lượng > 0
+
+     @property
+     def max_máu(self):
+        return 100
+   def hiển_thị_trạng_thái(người_chơi1, người_chơi2):
+      print(f"{người_chơi1.tên}: Máu = {người_chơi1.máu}, Điểm = {người_chơi1.điểm}, Năng lượng = {người_chơi1.năng_lượng}")
+      print(f"{người_chơi2.tên}: Máu = {người_chơi2.máu}, Điểm = {người_chơi2.điểm}, Năng lượng = {người_chơi2.năng_lượng}")
+
+   def trò_chơi():
+      người_chơi1 = NgườiChơi("Người chơi 1")
+      người_chơi2 = NgườiChơi("Người chơi 2")
+
+      lượt_hiện_tại = người_chơi1
+
+      while người_chơi1.còn_sống() and người_chơi2.còn_sống():
+        print("\n---- Trạng thái hiện tại ----")
+        hiển_thị_trạng_thái(người_chơi1, người_chơi2)
+
+        print(f"\nLượt của {lượt_hiện_tại.tên}")
+        hành_động = input("Chọn hành động (1: Tấn công, 2: Phòng thủ): ")
+
+        if lượt_hiện_tại.bị_bất_động():
+            print(f"{lượt_hiện_tại.tên} bị bất động và không thể hành động!")
+        else:
+            if hành_động == "1":
+                print("Chọn chiêu thức: ")
+                print("1. Thanh")
+                print("2. Xích")
+                print("3. Hư thức: Tử")
+                print("4. Ulti")
+                print("5. Hắc thăng")
+                print("6. Giản dị lãnh địa")
+                print("7. Lãnh địa triển duyên")
+                chiêu = input("Nhập số của chiêu thức: ")
+
+                if lượt_hiện_tại == người_chơi1:
+                    sát_thương = lượt_hiện_tại.tấn_công(người_chơi2, chiêu)
+                    if not người_chơi2.còn_sống():
+                        người_chơi1.điểm += 1
+                        print(f"{người_chơi2.tên} đã bị hạ gục!")
+                        break
+                    if not người_chơi1.còn_năng_lượng():
+                        người_chơi1.có_thể_sử_dụng_tất_cả_chiêu = False
+                        print("Bạn đã hết năng lượng")
+                else:
+                    sát_thương = lượt_hiện_tại.tấn_công(người_chơi1, chiêu)
+                    if not người_chơi1.còn_sống():
+                        người_chơi2.điểm += 1
+                        print(f"{người_chơi1.tên} đã bị hạ gục!")
+                        break
+                    if not người_chơi2.còn_năng_lượng():
+                        người_chơi2.có_thể_sử_dụng_tất_cả_chiêu = False
+                        print("Bạn đã hết năng lượng")  
+            elif hành_động == "2":
+                lượt_hiện_tại.phòng_thủ()
+
+        người_chơi1.áp_dụng_hiệu_ứng_đặc_biệt()
+        người_chơi2.áp_dụng_hiệu_ứng_đặc_biệt()
+
+        lượt_hiện_tại = người_chơi2 if lượt_hiện_tại == người_chơi1 else người_chơi1
+
+        print("\n---- Kết thúc trò chơi ----")
+        hiển_thị_trạng_thái(người_chơi1, người_chơi2)
+        if người_chơi1.còn_sống():
+         print(f"{người_chơi1.tên} thắng!")
+        else:
+         print(f"{người_chơi2.tên} thắng!")
+
+   if __name__ == "__main__":
+     trò_chơi() 
+
 def print_board(board):
     for row in board:
         print(" ".join([str(cell) if cell is not None else '.' for cell in row]))
@@ -455,51 +791,188 @@ board = [
 ]
 
 def banking():
-   def withdraw():
-      a = int(input("Nhập số tiền bạn muốn gửi vào tài khoản ngân hàng của bạn: "))
-      if a < 0:
-         print("Vui lòng nhập 1 con số hợp lệ")
-         return 0
-      else:
-         return a
-   def view(balance):
-     print(f"Số tiền của bạn là ${balance:.2f}")
+    def withdraw():
+        a = int(input("Nhập số tiền bạn muốn gửi vào tài khoản ngân hàng của bạn: "))
+        if a < 0:
+            print("Vui lòng nhập một con số hợp lệ")
+            return 0
+        else:
+            return a
 
-   def info():
-      pass   
-      
-   def deposit(balance):
-     a = int(input("Nhập số tiền bạn muốn rút ra: ")) 
-     if a > balance:
-        print("Vui lòng nhập 1 con số hợp lệ")
+    def check_password(stored_password, provided_password):
+        return bcrypt.checkpw(provided_password.encode(), stored_password.encode())
+
+    def load_balance(username):
+        try:
+            with open(f'{username}_balance.txt', 'r') as file:
+                balance = float(file.read().strip())
+            return balance
+        except FileNotFoundError:
+            return 0.0
+
+    def save_balance(username, balance):
+        with open(f'{username}_balance.txt', 'w') as file:
+            file.write(f'{balance:.2f}')
+
+    def view(balance):
+        print(f"Số tiền của bạn là ${balance:.2f}")
+
+    def info():
+        a = input("Nhập tên tài khoản: ")
+        b = input("Nhập mật khẩu: ")
+        with open('register_log.txt', 'r') as files:
+            lines = files.readlines()
+            valid = False
+
+            # Chạy qua các dòng, kiểm tra tên tài khoản và mật khẩu
+            for i in range(0, len(lines), 2):
+                saved_nickname = lines[i].strip()
+                saved_hashed_password = lines[i + 1].strip()
+
+                if a == saved_nickname and check_password(saved_hashed_password, b):
+                    valid = True
+                    break
+
+        if valid:
+            print("Đăng nhập thành công!")
+            balance = load_balance(a)
+            print(f"Tên tài khoản: {a}")
+            print(f"Số dư tài khoản: ${balance:.2f}")
+            return a, balance
+        else:
+            print("Đăng nhập thất bại! Tên tài khoản hoặc mật khẩu không đúng.")
+            return None, 0
+
+    def deposit(balance):
+        a = int(input("Nhập số tiền bạn muốn rút ra: "))
+        if a > balance:
+            print("Số dư không đủ")
+            return 0
+        elif a < 0:
+            print("Vui lòng nhập một con số hợp lệ")
+            return 0
+        else:
+            return a
+
+    def spin_row():
+        symbols = ['🍒', '🍉', '🍋', '🔔', '⭐']
+        return [random.choice(symbols) for _ in range(3)]
+
+    def print_row(row):
+        print("**************")
+        print(" | ".join(row))
+        print("**************")
+
+    def get_payout(row, bet):
+        if row[0] == row[1] == row[2]:
+            if row[0] == '🍒':
+                return bet * 3
+            elif row[0] == '🍉':
+                return bet * 4
+            elif row[0] == '🍋':
+                return bet * 5
+            elif row[0] == '🔔':
+                return bet * 10
+            elif row[0] == '⭐':
+                return bet * 20
         return 0
-     elif a < 0:
-        print("Vui lòng nhập 1 con số hợp lệ")
-        return 0 
-     else:
-        return a
-   def main(): 
-    balance = 0     
-    is_running = True
-    while is_running:
-     print("-------------------------")
-     print("Hệ thống ngân hàng")
-     print("1. Xem số dư tài khoản ngân hàng.")
-     print("2. Rút tiền")
-     print("3. Chuyển tiền vào tài khoản ngân hàng.")
-     print("4. Exit.")
-     ans = input("Chọn 1 lựa chọn: ")
-     if ans == '1':
-       view(balance)
-     elif ans == '2':
-       balance -= deposit(balance)
-     elif ans == '3':
-       balance += withdraw()
-     elif ans == '4':
-       print("Cảm ơn vì đã sử dụng hệ thống ngân hàng")   
-       is_running = False
-   if __name__ == '__main__':
-     main()          
+
+    def slot_machine_main(balance):
+        print("*************************")
+        print("Chào mừng đến với Python Slots")
+        print("Symbols: 🍒 🍉 🍋 🔔 ⭐")
+        print("*************************")
+
+        while balance > 0:
+            print(f"Số dư hiện tại: ${balance}")
+
+            bet = input("Đặt cược của bạn: ")
+
+            if not bet.isdigit():
+                print("Vui lòng nhập một số hợp lệ")
+                continue
+
+            bet = int(bet)
+
+            if bet > balance:
+                print("Số dư không đủ")
+                continue
+
+            if bet <= 0:
+                print("Đặt cược phải lớn hơn 0")
+                continue
+
+            balance -= bet
+
+            row = spin_row()
+            print("Đang quay...\n")
+            print_row(row)
+
+            payout = get_payout(row, bet)
+
+            if payout > 0:
+                print(f"Bạn đã thắng ${payout}")
+            else:
+                print("Xin lỗi, bạn đã thua ván này")
+
+            balance += payout
+
+            play_again = input("Bạn có muốn quay nữa không? (Y/N): ").upper()
+
+            if play_again != 'Y':
+                break
+
+        print("*******************************************")
+        print(f"Trò chơi kết thúc! Số dư cuối cùng của bạn là ${balance}")
+        print("*******************************************")
+        return balance
+
+    def main():
+        current_users = None
+        balance = 0
+
+        is_running = True
+        while is_running:
+            print("-------------------------")
+            print("Hệ thống ngân hàng")
+            print("1. Xem số dư tài khoản ngân hàng.")
+            print("2. Rút tiền")
+            print("3. Chuyển tiền vào tài khoản ngân hàng.")
+            print("4. Đăng nhập")
+            print("5. Slot machine.")
+            print("6. Thoát.")
+            ans = input("Chọn một lựa chọn: ")
+            if ans == '1':
+                if current_users:
+                    view(balance)
+                else:
+                    print("Vui lòng đăng nhập trước.")
+            elif ans == '2':
+                if current_users:
+                    balance -= deposit(balance)
+                    save_balance(current_users, balance)
+                else:
+                    print("Vui lòng đăng nhập trước.")
+            elif ans == '3':
+                if current_users:
+                    balance += withdraw()
+                    save_balance(current_users, balance)
+                else:
+                    print("Vui lòng đăng nhập trước.")
+            elif ans == '4':
+                current_users, balance = info()
+            elif ans == '5':
+                if current_users:
+                    balance = slot_machine_main(balance)
+                    save_balance(current_users, balance)
+                else:
+                    print("Vui lòng đăng nhập trước.")
+            elif ans == '6':
+                print("Cảm ơn vì đã sử dụng hệ thống ngân hàng")
+                is_running = False
+
+    if __name__ == '__main__':
+        main()          
 
 def create_pwd(pw_length=8):
    letters = string.ascii_letters
@@ -648,17 +1121,19 @@ async def main():
       x.add_column("Column 3", )
       print(x)
      elif '13' in opt:
+       while True: 
         banking() 
      elif '12' in opt:
         print(create_pwd()) 
      elif '14' in opt:
         feedback()
      elif '15' in opt:
-        login_and_register()      
+        login_and_register()
+     elif '16' in opt:
+        game_đối_kháng()                 
      elif '11' in opt:
       print("Bắt đầu trò chơi cờ ca rô!")
       print_board(board)
-
       while True:
     # Player X move
        row = int(input("Nhập hàng (0, 1, 2, 3, 4): "))
